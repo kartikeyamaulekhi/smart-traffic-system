@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: api-gateway
+
+  profiles:
+    active: postgres
+
+  cloud:
+    gateway:
+      # Single entry point for the whole system. The frontend only ever talks
+      # to this gateway - never directly to a microservice. Routing uses static
+      # URLs (no service discovery); docker-compose rewires these to service
+      # names via env vars.
+      routes:
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URL:http://localhost:8091}
+          predicates:
+            - Path=/auth/**
+        - id: traffic-service-segments
+          uri: ${TRAFFIC_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/road-segments/**
+        - id: traffic-service-traffic
+          uri: ${TRAFFIC_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/traffic/**
+        - id: traffic-service-predictions
+          uri: ${TRAFFIC_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/predictions/**
+        - id: routing-service
+          uri: ${ROUTING_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/routes/**
+
+server:
+  port: 8080
+
+---
+# HTTPS for the gateway. Enable with the "tls" profile (or SPRING_PROFILES_ACTIVE
+# containing "tls"); the gateway then serves TLS on its configured port using the
+# packaged DEV keystore (self-signed - for real deployments replace the keystore
+# path, password and alias with values from your certificate authority / ingress).
+spring:
+  config:
+    activate:
+      on-profile: tls
+server:
+  ssl:
+    enabled: true
+    key-store: classpath:tls/gateway-dev.p12
+    key-store-type: PKCS12
+    key-store-password: changeit
+    key-alias: smart-traffic-gateway
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+---
+spring:
+  config:
+    activate:
+      on-profile: test

@@ -1,0 +1,30 @@
+# Environment / secrets — NEVER commit. .env holds JWT_SECRET, DB creds, TomTom key.
+.env
+
+# IDE — .idea/runConfigurations/*.xml may contain real secrets in local copies.
+.idea/
+*.iml
+.vscode/
+
+# Java / Maven build output
+**/target/
+*.class
+*.jar
+*.war
+
+# Python (ml-service)
+ml-service/venv/
+__pycache__/
+*.pyc
+ml-service/models/
+
+# Archived / decommissioned code and stray local files
+_archive/
+backend/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Stray personal document — not part of the project
+CSN 401 Non Graded Lab-1.docx

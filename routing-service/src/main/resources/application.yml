@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: routing-service
+
+  profiles:
+    active: postgres
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: routing-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.value.default.type: "com.smarttraffic.routingservice.messaging.TrafficReadingEvent"
+        spring.json.use.type.headers: false
+
+server:
+  port: 8083
+
+app:
+  jwt:
+    # MUST match the secret in auth-service and traffic-service - it's how
+    # routing-service validates the tokens auth-service issued.
+    # Deliberately no fallback value: deployments must supply JWT_SECRET or
+    # the service refuses to start (fail-fast instead of a known secret).
+    secret: ${JWT_SECRET}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000} # 1 hour
+  routing:
+    # Traffic readings older than this are ignored when computing an edge's
+    # real-time speed for routing; the edge falls back to the default speed
+    # instead. The Kafka consumer keeps only the latest reading per segment
+    # in memory - this is just how fresh a cached reading must be to count.
+    traffic-freshness-minutes: 30
+  traffic-service:
+    # Where traffic-service runs - the routing graph's road segments are
+    # fetched from here (static config URL; docker-compose rewires this to
+    # the service name via TRAFFIC_SERVICE_URL).
+    base-url: ${TRAFFIC_SERVICE_URL:http://localhost:8082}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+---
+spring:
+  config:
+    activate:
+      on-profile: test

@@ -1,0 +1,104 @@
+spring:
+  application:
+    name: traffic-service
+
+  profiles:
+    active: postgres
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+server:
+  port: 8082
+
+app:
+  jwt:
+    # MUST match the secret used by auth-service and routing-service - it's how
+    # traffic-service validates the tokens auth-service issued, without calling
+    # back into auth-service on every request (symmetric JWT validation).
+    # Deliberately no fallback value: deployments must supply JWT_SECRET or
+    # the service refuses to start (fail-fast instead of a known secret).
+    secret: ${JWT_SECRET}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000} # 1 hour
+  tomtom:
+    # Get a free key at https://developer.tomtom.com/ and set it as an
+    # environment variable named TOMTOM_API_KEY. Until then, live ingestion
+    # is safely skipped (see TomTomTrafficClient).
+    api-key: ${TOMTOM_API_KEY:demo-key-replace-me}
+    poll-interval-ms: 60000 # how often to poll each road segment, in milliseconds
+  ml:
+    # Where the Python FastAPI prediction service (ml-service/) is running.
+    base-url: ${ML_SERVICE_URL:http://localhost:8010}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  flyway:
+    enabled: false
+  datasource:
+    url: jdbc:h2:mem:smart_traffic_traffic;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.H2Dialect
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+---
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    # Own database - "smart_traffic_traffic" - separate from auth-service's and
+    # routing-service's databases. Runs in the "smart-traffic-postgres" container
+    # on port 5433 (docker-compose.yml at the repo root), NOT the default 5432.
+    #   docker compose up -d postgres
+    #   psql -U postgres -h localhost -p 5433 -c "CREATE DATABASE smart_traffic_traffic;"
+    url: jdbc:postgresql://localhost:${DB_PORT:5433}/smart_traffic_traffic
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  flyway:
+    enabled: false
+  datasource:
+    url: jdbc:h2:mem:testdb_traffic
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
