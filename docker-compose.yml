@@ -151,6 +151,15 @@ services:
       postgres:
         condition: service_healthy
 
+  frontend:
+    build: ./frontend
+    image: ghcr.io/kartikeyamaulekhi/smart-traffic-system/frontend
+    container_name: smart-traffic-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+
 volumes:
   smart-traffic-pgdata:
   smart-traffic-redisdata:

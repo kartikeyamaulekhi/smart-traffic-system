@@ -58,6 +58,8 @@ jobs:
             context: ./api-gateway
           - name: ml-service
             context: ./ml-service
+          - name: frontend
+            context: ./frontend
     steps:
       - name: Checkout
         uses: actions/checkout@v5
