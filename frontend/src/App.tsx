@@ -7,6 +7,12 @@ import { History } from './components/History';
 
 type Tab = 'dashboard' | 'routes' | 'history';
 
+const TABS: Array<{ id: Tab; label: string; icon: string }> = [
+  { id: 'dashboard', label: 'Live map', icon: '🛰️' },
+  { id: 'routes', label: 'Route planner', icon: '🧭' },
+  { id: 'history', label: 'History', icon: '📈' },
+];
+
 function Shell() {
   const { token, email, signOut } = useAuth();
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -15,22 +21,23 @@ function Shell() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="app-brand">🚦 Smart Traffic</div>
-        <nav className="tabs">
-          <button className={tab === 'dashboard' ? 'tab active' : 'tab'} onClick={() => setTab('dashboard')}>
-            Dashboard
-          </button>
-          <button className={tab === 'routes' ? 'tab active' : 'tab'} onClick={() => setTab('routes')}>
-            Routes
-          </button>
-          <button className={tab === 'history' ? 'tab active' : 'tab'} onClick={() => setTab('history')}>
-            History
-          </button>
+      <header className="app-header glass">
+        <div className="app-brand">
+          <span className="brand-logo">🚦</span>
+          <span>Smart<span className="grad-text">Traffic</span></span>
+        </div>
+        <nav className="nav-tabs">
+          {TABS.map((t) => (
+            <button key={t.id} className={tab === t.id ? 'nav-tab active' : 'nav-tab'} onClick={() => setTab(t.id)}>
+              <span className="nav-icon">{t.icon}</span>
+              {t.label}
+            </button>
+          ))}
         </nav>
-        <div className="user">
-          <span className="muted">{email}</span>
-          <button onClick={signOut}>Sign out</button>
+        <div className="user-chip">
+          <span className="avatar">{email?.charAt(0).toUpperCase() ?? '?'}</span>
+          <span className="user-email muted">{email}</span>
+          <button className="ghost-btn" onClick={signOut}>Sign out</button>
         </div>
       </header>
 
@@ -39,6 +46,10 @@ function Shell() {
         {tab === 'routes' && <RoutePlanner />}
         {tab === 'history' && <History />}
       </main>
+
+      <footer className="app-footer muted">
+        Microservices · Kafka · Redis · Flyway · Dijkstra routing · ML forecasts on <span className="grad-text">ghcr.io/kartikeyamaulekhi/smart-traffic-system</span>
+      </footer>
     </div>
   );
 }

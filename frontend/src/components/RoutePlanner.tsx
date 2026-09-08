@@ -2,43 +2,46 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useAuth } from '../auth';
 import { api } from '../api/client';
 import type { RoadSegment, RouteResult } from '../api/types';
+import { LANDMARKS, LANDMARK_ICON } from '../config/landmarks';
 import { NetworkMap } from './NetworkMap';
+import { traceRoute, formatEta, formatKm } from '../lib/geo';
 
 export function RoutePlanner() {
   const { token } = useAuth();
   const [segments, setSegments] = useState<RoadSegment[]>([]);
-  const [originId, setOriginId] = useState<number>(1);
-  const [destId, setDestId] = useState<number>(4);
+  const [originId, setOriginId] = useState('geu');
+  const [destId, setDestId] = useState('upes');
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!token) return;
-    api.segments(token).then(setSegments).catch((err) => setError(err.message));
+    api.segments(token).then(setSegments).catch(() => undefined);
   }, [token]);
 
-  const points = useMemo(() => {
-    const byId = new Map(segments.map((s) => [s.id, s]));
-    const origin = byId.get(originId);
-    const dest = byId.get(destId);
-    if (!origin || !dest) return null;
-    // Route from the midpoint of the chosen segments.
-    return {
-      originLat: (origin.startLat + origin.endLat) / 2,
-      originLng: (origin.startLng + origin.endLng) / 2,
-      destinationLat: (dest.startLat + dest.endLat) / 2,
-      destinationLng: (dest.startLng + dest.endLng) / 2,
-    };
-  }, [segments, originId, destId]);
+  const origin = useMemo(() => LANDMARKS.find((l) => l.id === originId), [originId]);
+  const destination = useMemo(() => LANDMARKS.find((l) => l.id === destId), [destId]);
+
+  const trace = useMemo(
+    () => (route && origin && destination ? traceRoute(segments, route, origin.lat, origin.lng) : []),
+    [route, segments, origin, destination],
+  );
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!points || !token) return;
+    if (!origin || !destination || !token) return;
     setError('');
     setBusy(true);
     try {
-      setRoute(await api.route(token, points));
+      setRoute(
+        await api.route(token, {
+          originLat: origin.lat,
+          originLng: origin.lng,
+          destinationLat: destination.lat,
+          destinationLng: destination.lng,
+        }),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Routing failed');
       setRoute(null);
@@ -47,79 +50,132 @@ export function RoutePlanner() {
     }
   }
 
+  const swap = () => {
+    setOriginId(destId);
+    setDestId(originId);
+  };
+
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+
   return (
-    <section>
-      <div className="section-head">
-        <h2>Route planner</h2>
+    <section className="view">
+      <div className="view-head">
+        <div>
+          <h2>Route planner</h2>
+          <p className="muted">Fastest path by live travel time — snapped to the modelled road network.</p>
+        </div>
       </div>
-      <div className="card">
+
+      <div className="card glass planner-card">
         <form className="route-form" onSubmit={onSubmit}>
-          <label>
-            From
-            <select value={originId} onChange={(e) => setOriginId(Number(e.target.value))}>
-              {segments.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+          <label className="field">
+            <span>From</span>
+            <div className="select-wrap">
+              <span className="select-emoji">{LANDMARK_ICON[origin?.type ?? 'hub']}</span>
+              <select value={originId} onChange={(e) => setOriginId(e.target.value)}>
+                <optgroup label="🎓 Universities">
+                  {LANDMARKS.filter((l) => l.type === 'university').sort(byName).map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="🚏 Transit & hubs">
+                  {LANDMARKS.filter((l) => l.type !== 'university').sort(byName).map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+            <small className="muted">{origin?.city} · {origin?.note ?? origin?.type}</small>
           </label>
-          <label>
-            To
-            <select value={destId} onChange={(e) => setDestId(Number(e.target.value))}>
-              {segments.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+
+          <button type="button" className="swap-btn" onClick={swap} title="Swap origin & destination">⇄</button>
+
+          <label className="field">
+            <span>To</span>
+            <div className="select-wrap">
+              <span className="select-emoji">{LANDMARK_ICON[destination?.type ?? 'university']}</span>
+              <select value={destId} onChange={(e) => setDestId(e.target.value)}>
+                <optgroup label="🎓 Universities">
+                  {LANDMARKS.filter((l) => l.type === 'university').sort(byName).map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="🚏 Transit & hubs">
+                  {LANDMARKS.filter((l) => l.type !== 'university').sort(byName).map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+            <small className="muted">{destination?.city} · {destination?.note ?? destination?.type}</small>
           </label>
-          <button type="submit" className="primary" disabled={busy || !points}>
-            {busy ? 'Routing…' : 'Find route'}
+
+          <button type="submit" className="btn-primary" disabled={busy || !origin || !destination || origin.id === destId}>
+            {busy ? 'Routing…' : 'Find fastest route'}
           </button>
         </form>
       </div>
 
       {error && <div className="error">{error}</div>}
 
-      {route && (
+      {route && origin && destination ? (
         <>
-          <div className="card route-summary">
-            <div>
-              <span className="mutted-label">Distance</span>
-              <h3>{route.totalDistanceKm.toFixed(2)} km</h3>
+          <div className="route-summary-grid">
+            <div className="kpi glass">
+              <span className="kpi-label">Distance</span>
+              <strong>{formatKm(route.totalDistanceKm)}</strong>
+              <span className="kpi-sub">{route.segments.length} road segments</span>
             </div>
-            <div>
-              <span className="mutted-label">Travel time</span>
-              <h3>{route.totalTravelTimeMinutes.toFixed(1)} min</h3>
+            <div className="kpi glass">
+              <span className="kpi-label">Estimated travel time</span>
+              <strong className="grad-text">{formatEta(route.totalTravelTimeMinutes)}</strong>
+              <span className="kpi-sub">at current congestion</span>
             </div>
-            <div>
-              <span className="mutted-label">Roads</span>
-              <h3>{route.segments.length}</h3>
+            <div className="kpi glass route-od">
+              <span className="kpi-label">{origin.name} → {destination.name}</span>
+              <div className="route-arrows">
+                <span className="route-pin origin" />
+                <span className="route-line" />
+                <span className="route-pin dest" />
+              </div>
+              <span className="kpi-sub">{destination.city}</span>
             </div>
           </div>
 
-          <div className="card">
+          <div className="card glass">
             <NetworkMap
               segments={segments}
-              highlights={new Set(route.segments.map((s) => s.roadSegmentId))}
+              city="ALL"
+              routeTrace={trace}
+              origin={[origin.lat, origin.lng]}
+              destination={[destination.lat, destination.lng]}
             />
           </div>
 
-          <div className="card">
+          <div className="card glass">
+            <h3>Turn-by-segment</h3>
             <ul className="route-legs">
-              {route.segments.map((s) => (
-                <li key={s.roadSegmentId}>
-                  <strong>{s.roadSegmentName}</strong>
-                  <span>
-                    {s.distanceKm.toFixed(2)} km @ {s.effectiveSpeedKmh.toFixed(0)} km/h →{' '}
-                    {s.travelTimeMinutes.toFixed(1)} min
+              {route.segments.map((s, i) => (
+                <li key={`${s.roadSegmentId}-${i}`}>
+                  <span className="leg-idx">{i + 1}</span>
+                  <span className="leg-main">
+                    <strong>{s.roadSegmentName}</strong>
+                    <small className="muted">@ {s.effectiveSpeedKmh} km/h effective speed</small>
+                  </span>
+                  <span className="leg-meta">
+                    <b>{formatKm(s.distanceKm)}</b>
+                    <small>{formatEta(s.travelTimeMinutes)}</small>
                   </span>
                 </li>
               ))}
             </ul>
           </div>
         </>
+      ) : (
+        <div className="empty-hint glass">
+          <span>🧭</span>
+          Pick two places — try <b>DIT University → UPES</b> across the Mussoorie Rd corridor.
+        </div>
       )}
     </section>
   );
