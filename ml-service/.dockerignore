@@ -3,4 +3,3 @@ __pycache__/
 .env
 .git/
 .gitignore
-models/*.joblib
