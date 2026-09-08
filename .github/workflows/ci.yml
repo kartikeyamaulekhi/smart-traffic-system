@@ -26,10 +26,10 @@ jobs:
         service: [auth-service, traffic-service, routing-service, api-gateway]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -60,7 +60,7 @@ jobs:
             context: ./ml-service
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
