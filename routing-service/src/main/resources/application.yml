@@ -2,6 +2,9 @@ spring:
   application:
     name: routing-service
 
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
   profiles:
     active: postgres
 
@@ -19,18 +22,35 @@ spring:
 
 server:
   port: 8083
+  shutdown: graceful
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,prometheus,circuitbreakers,retries
   endpoint:
     health:
       show-details: always
   metrics:
     tags:
       application: ${spring.application.name}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      traffic:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+  retry:
+    instances:
+      traffic:
+        max-attempts: 3
+        wait-duration: 1s
 
 logging:
   # Structured JSON logs (ECS format) - read by log shippers / Grafana Loki etc.

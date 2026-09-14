@@ -49,7 +49,9 @@ public class SecurityConfig {
                         // so Prometheus can scrape /actuator/prometheus without auth
                         // and Docker / K8s probes can hit /actuator/health.
                         .requestMatchers("/health", "/actuator/health", "/actuator/info",
-                                "/actuator/metrics/**", "/actuator/prometheus").permitAll()
+                                "/actuator/metrics/**", "/actuator/prometheus",
+                                "/actuator/circuitbreakers", "/actuator/circuitbreakers/**",
+                                "/actuator/retries", "/actuator/retries/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

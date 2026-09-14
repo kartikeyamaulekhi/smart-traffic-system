@@ -1,5 +1,9 @@
 package com.smarttraffic.trafficservice.integration.ml;
 
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.retry.RetryConfig;
+import io.github.resilience4j.retry.RetryRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -7,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,7 +33,13 @@ class MlPredictionClientTest {
     void setUp() {
         restTemplate = new RestTemplate();
         mockServer = MockRestServiceServer.bindTo(restTemplate).build();
-        client = new MlPredictionClient(restTemplate, "http://ml-service:8010");
+        // Deliberately tiny retry/breaker windows so unit tests stay fast.
+        RetryConfig retryConfig = RetryConfig.custom()
+                .maxAttempts(2)
+                .waitDuration(Duration.ofMillis(50))
+                .build();
+        client = new MlPredictionClient(restTemplate, "http://ml-service:8010",
+                CircuitBreakerRegistry.ofDefaults(), RetryRegistry.of(retryConfig));
     }
 
     @Test
@@ -49,7 +60,11 @@ class MlPredictionClientTest {
     }
 
     @Test
-    void predict_mlDown_returnsEmpty() {
+    void predict_mlDown_retriesThenReturnsEmpty() {
+        // With maxAttempts=2 the client hits ml-service twice before giving up.
+        mockServer.expect(requestTo("http://ml-service:8010/predict"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andRespond(withServerError());
         mockServer.expect(requestTo("http://ml-service:8010/predict"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andRespond(withServerError());
@@ -71,7 +86,41 @@ class MlPredictionClientTest {
         mockServer.expect(requestTo("http://ml-service:8010/predict"))
                 .andExpect(method(org.springframework.http.HttpMethod.POST))
                 .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+        mockServer.expect(requestTo("http://ml-service:8010/predict"))
+                .andExpect(method(org.springframework.http.HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
         assertTrue(client.predict(1L, LocalDateTime.of(2026, 9, 5, 9, 30)).isEmpty());
+    }
+
+    @Test
+    void predict_mlKeepsFailing_circuitOpensAndFailsFast() {
+        CircuitBreakerConfig breakerConfig = CircuitBreakerConfig.custom()
+                .slidingWindowSize(4)
+                .minimumNumberOfCalls(4)
+                .failureRateThreshold(50)
+                .permittedNumberOfCallsInHalfOpenState(1)
+                .waitDurationInOpenState(Duration.ofMinutes(1))
+                .build();
+        RetryConfig retryConfig = RetryConfig.custom()
+                .maxAttempts(1)
+                .build();
+        client = new MlPredictionClient(restTemplate, "http://ml-service:8010",
+                CircuitBreakerRegistry.of(breakerConfig), RetryRegistry.of(retryConfig));
+
+        for (int i = 0; i < 4; i++) {
+            mockServer.expect(requestTo("http://ml-service:8010/predict"))
+                    .andExpect(method(org.springframework.http.HttpMethod.POST))
+                    .andRespond(withServerError());
+        }
+
+        for (int i = 0; i < 4; i++) {
+            assertTrue(client.predict(1L, LocalDateTime.of(2026, 9, 5, 9, 30)).isEmpty());
+        }
+
+        // Circuit is OPEN now - the next call must short-circuit without
+        // touching ml-service (mockServer.verify() enforces no extra requests).
+        assertTrue(client.predict(1L, LocalDateTime.of(2026, 9, 5, 9, 30)).isEmpty());
+        mockServer.verify();
     }
 }

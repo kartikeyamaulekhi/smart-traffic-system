@@ -2,11 +2,18 @@ spring:
   application:
     name: api-gateway
 
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
   profiles:
     active: postgres
 
   cloud:
     gateway:
+      # Fails fast rather than hanging on a slow/unreachable downstream service.
+      httpclient:
+        connect-timeout: 2000
+        response-timeout: 5s
       # Single entry point for the whole system. The frontend only ever talks
       # to this gateway - never directly to a microservice. Routing uses static
       # URLs (no service discovery); docker-compose rewires these to service
@@ -35,6 +42,7 @@ spring:
 
 server:
   port: 8080
+  shutdown: graceful
 
 app:
   downstream:

@@ -91,6 +91,16 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
+        <!-- Resilience4j: circuit breaker + retry for the ML service call.
+             Registers CircuitBreakerRegistry/RetryRegistry and pushes the
+             resilience metrics straight into Micrometer (visible in
+             Prometheus/Grafana as resilience4j_circuitbreaker_*). -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+            <version>2.2.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
