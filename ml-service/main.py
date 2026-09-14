@@ -12,8 +12,11 @@ from datetime import datetime
 from typing import Optional
 
 import joblib
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
+from prometheus_client import (CONTENT_TYPE_LATEST, Counter, Histogram,
+                               generate_latest)
+from starlette.responses import Response
 
 from config import MODEL_PATH, ENCODER_PATH
 from features import build_features
@@ -22,6 +25,16 @@ app = FastAPI(title="Smart Traffic - ML Prediction Service")
 
 _model = None
 _label_encoder = None
+
+PREDICT_REQUESTS = Counter(
+    "ml_predict_requests_total",
+    "Prediction requests received",
+    ["outcome"],
+)
+PREDICT_LATENCY = Histogram(
+    "ml_predict_latency_seconds",
+    "Prediction request latency in seconds",
+)
 
 
 def _load_model_if_needed():
@@ -55,21 +68,35 @@ def health():
     return {"status": "UP", "model_ready": model_ready}
 
 
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
 @app.post("/predict", response_model=PredictResponse)
 def predict(request: PredictRequest):
-    _load_model_if_needed()
+    with PREDICT_LATENCY.time():
+        try:
+            _load_model_if_needed()
 
-    timestamp = request.timestamp or datetime.now()
-    X = build_features(request.road_segment_id, timestamp)
+            timestamp = request.timestamp or datetime.now()
+            X = build_features(request.road_segment_id, timestamp)
 
-    probabilities = _model.predict_proba(X)[0]
-    predicted_index = probabilities.argmax()
-    predicted_label = _label_encoder.inverse_transform([predicted_index])[0]
-    confidence = float(probabilities[predicted_index])
+            probabilities = _model.predict_proba(X)[0]
+            predicted_index = probabilities.argmax()
+            predicted_label = _label_encoder.inverse_transform([predicted_index])[0]
+            confidence = float(probabilities[predicted_index])
 
-    return PredictResponse(
-        road_segment_id=request.road_segment_id,
-        timestamp=timestamp,
-        predicted_congestion_level=predicted_label,
-        confidence=round(confidence, 4),
-    )
+            PREDICT_REQUESTS.labels(outcome="success").inc()
+            return PredictResponse(
+                road_segment_id=request.road_segment_id,
+                timestamp=timestamp,
+                predicted_congestion_level=predicted_label,
+                confidence=round(confidence, 4),
+            )
+        except HTTPException:
+            PREDICT_REQUESTS.labels(outcome="model_unavailable").inc()
+            raise
+        except Exception:
+            PREDICT_REQUESTS.labels(outcome="error").inc()
+            raise

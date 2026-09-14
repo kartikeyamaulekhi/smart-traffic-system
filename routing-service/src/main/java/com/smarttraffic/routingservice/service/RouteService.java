@@ -10,11 +10,14 @@ import com.smarttraffic.routingservice.routing.DijkstraRouter;
 import com.smarttraffic.routingservice.routing.GeoUtils;
 import com.smarttraffic.routingservice.routing.RoadEdge;
 import com.smarttraffic.routingservice.routing.RoadNetworkBuilder;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -29,8 +32,21 @@ public class RouteService {
     private final TrafficServiceClient trafficServiceClient;
     private final RoadNetworkBuilder roadNetworkBuilder;
     private final DijkstraRouter dijkstraRouter;
+    private final MeterRegistry meterRegistry;
 
     public RouteResponse findRoute(RouteRequest request, String callerToken) {
+        Timer.Sample sample = Timer.start(meterRegistry);
+
+        try {
+            return doFindRoute(request, callerToken, sample);
+        } catch (RuntimeException ex) {
+            meterRegistry.counter("smart_traffic_routes_total", "outcome", "error",
+                    "error", ex.getClass().getSimpleName()).increment();
+            throw ex;
+        }
+    }
+
+    private RouteResponse doFindRoute(RouteRequest request, String callerToken, Timer.Sample sample) {
         List<RoadSegment> segments = trafficServiceClient.fetchRoadSegments(callerToken);
         if (segments.isEmpty()) {
             throw new NoRouteFoundException("No road segments exist yet - nothing to route through.");
@@ -62,6 +78,11 @@ public class RouteService {
 
         double totalDistance = segmentInfos.stream().mapToDouble(RouteSegmentInfo::getDistanceKm).sum();
         double totalTime = segmentInfos.stream().mapToDouble(RouteSegmentInfo::getTravelTimeMinutes).sum();
+
+        sample.stop(Timer.builder("smart_traffic_routing_seconds")
+                .description("Time spent computing a route")
+                .register(meterRegistry));
+        meterRegistry.counter("smart_traffic_routes_total", "outcome", "success").increment();
 
         return RouteResponse.builder()
                 .totalDistanceKm(round(totalDistance))

@@ -6,6 +6,7 @@ import com.smarttraffic.trafficservice.exception.MlServiceUnavailableException;
 import com.smarttraffic.trafficservice.integration.ml.MlPredictionApiResponse;
 import com.smarttraffic.trafficservice.integration.ml.MlPredictionClient;
 import com.smarttraffic.trafficservice.model.CongestionLevel;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -20,6 +21,7 @@ public class PredictionService {
 
     private final RoadSegmentService roadSegmentService;
     private final MlPredictionClient mlPredictionClient;
+    private final MeterRegistry meterRegistry;
 
     /**
      * Cached in Redis under "predictions::{roadSegmentId}_{timestamp}".
@@ -35,16 +37,22 @@ public class PredictionService {
         RoadSegmentResponse segment = roadSegmentService.findById(roadSegmentId);
 
         MlPredictionApiResponse apiResponse = mlPredictionClient.predict(roadSegmentId, timestamp)
-                .orElseThrow(() -> new MlServiceUnavailableException(
-                        "Prediction service is unavailable or has no trained model yet. " +
-                        "Make sure ml-service is running and 'python train.py' has been run at least once."
-                ));
+                .orElseThrow(() -> {
+                    meterRegistry.counter("smart_traffic_predictions_total", "outcome", "error").increment();
+                    return new MlServiceUnavailableException(
+                            "Prediction service is unavailable or has no trained model yet. " +
+                            "Make sure ml-service is running and 'python train.py' has been run at least once."
+                    );
+                });
+
+        CongestionLevel level = CongestionLevel.valueOf(apiResponse.getPredictedCongestionLevel());
+        meterRegistry.counter("smart_traffic_predictions_total", "outcome", "success", "level", level.name()).increment();
 
         return PredictionResponse.builder()
                 .roadSegmentId(segment.getId())
                 .roadSegmentName(segment.getName())
                 .forTimestamp(apiResponse.getTimestamp() != null ? apiResponse.getTimestamp() : LocalDateTime.now())
-                .predictedCongestionLevel(CongestionLevel.valueOf(apiResponse.getPredictedCongestionLevel()))
+                .predictedCongestionLevel(level)
                 .confidence(apiResponse.getConfidence() != null ? apiResponse.getConfidence() : 0.0)
                 .build();
     }

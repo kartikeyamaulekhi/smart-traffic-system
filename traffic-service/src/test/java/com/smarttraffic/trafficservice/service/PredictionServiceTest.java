@@ -6,10 +6,12 @@ import com.smarttraffic.trafficservice.exception.MlServiceUnavailableException;
 import com.smarttraffic.trafficservice.integration.ml.MlPredictionApiResponse;
 import com.smarttraffic.trafficservice.integration.ml.MlPredictionClient;
 import com.smarttraffic.trafficservice.model.CongestionLevel;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -27,6 +29,9 @@ class PredictionServiceTest {
 
     @Mock
     private MlPredictionClient mlPredictionClient;
+
+    @Spy
+    private SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks
     private PredictionService predictionService;

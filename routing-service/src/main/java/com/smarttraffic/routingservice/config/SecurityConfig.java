@@ -38,7 +38,11 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/health").permitAll()
+                        // Spring Boot Actuator endpoints (/actuator/**) are public
+                        // so Prometheus can scrape /actuator/prometheus without auth
+                        // and Docker / K8s probes can hit /actuator/health.
+                        .requestMatchers("/health", "/actuator/health", "/actuator/info",
+                                "/actuator/metrics/**", "/actuator/prometheus").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

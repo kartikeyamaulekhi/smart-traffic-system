@@ -12,9 +12,11 @@ permissions:
   packages: write
 
 env:
-  # Arbitrary test-only value for unit tests. The real JWT_SECRET lives in
-  # the local .env (dev) / GitHub Secrets (deploy) and is NEVER committed.
-  JWT_SECRET: ci-test-only-secret-unused-in-production
+  # Arbitrary test-only value for unit tests (valid base64, since the services
+  # base64-decode JWT_SECRET when building their signing key). The real
+  # JWT_SECRET lives in the local .env (dev) / GitHub Secrets (deploy) and is
+  # NEVER committed.
+  JWT_SECRET: c21hcnQtdHJhZmZpYy1jaS10ZXN0LXNlY3JldC1rZXktMDAwMDAwMDAwMDAwMDA=
 
 jobs:
   test:

@@ -7,10 +7,12 @@ import com.smarttraffic.authservice.model.Role;
 import com.smarttraffic.authservice.model.User;
 import com.smarttraffic.authservice.repository.UserRepository;
 import com.smarttraffic.authservice.security.JwtService;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -40,6 +42,9 @@ class AuthServiceTest {
 
     @Mock
     private JwtService jwtService;
+
+    @Spy
+    private SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks
     private AuthService authService;

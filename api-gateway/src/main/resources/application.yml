@@ -36,6 +36,32 @@ spring:
 server:
   port: 8080
 
+app:
+  downstream:
+    # Probed by the DownstreamHealthIndicator - the gateway's /actuator/health
+    # is "UP" only when every one of these reports UP too.
+    auth-service: ${AUTH_SERVICE_URL:http://localhost:8091}
+    traffic-service: ${TRAFFIC_SERVICE_URL:http://localhost:8082}
+    routing-service: ${ROUTING_SERVICE_URL:http://localhost:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  # Structured JSON logs (ECS format) - read by log shippers / Grafana Loki etc.
+  structured:
+    format:
+      console: ecs
+
 ---
 # HTTPS for the gateway. Enable with the "tls" profile (or SPRING_PROFILES_ACTIVE
 # containing "tls"); the gateway then serves TLS on its configured port using the
@@ -63,3 +89,8 @@ spring:
   config:
     activate:
       on-profile: test
+management:
+  health:
+    downstream:
+      # Don't probe real downstream services during unit tests.
+      enabled: false

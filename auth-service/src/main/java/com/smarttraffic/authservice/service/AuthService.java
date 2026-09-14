@@ -7,6 +7,7 @@ import com.smarttraffic.authservice.model.Role;
 import com.smarttraffic.authservice.model.User;
 import com.smarttraffic.authservice.repository.UserRepository;
 import com.smarttraffic.authservice.security.JwtService;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -25,9 +26,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final MeterRegistry meterRegistry;
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
+            meterRegistry.counter("smart_traffic_registrations_total", "outcome", "duplicate").increment();
             throw new IllegalArgumentException("An account with this email already exists");
         }
 
@@ -39,6 +42,7 @@ public class AuthService {
 
         userRepository.save(user);
 
+        meterRegistry.counter("smart_traffic_registrations_total", "outcome", "created").increment();
         return buildAuthResponse(user.getEmail(), user.getRole());
     }
 
@@ -48,12 +52,14 @@ public class AuthService {
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
             );
         } catch (org.springframework.security.core.AuthenticationException ex) {
+            meterRegistry.counter("smart_traffic_logins_total", "outcome", "unauthorized").increment();
             throw new BadCredentialsException("Invalid email or password");
         }
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
+        meterRegistry.counter("smart_traffic_logins_total", "outcome", "success").increment();
         return buildAuthResponse(user.getEmail(), user.getRole());
     }
 

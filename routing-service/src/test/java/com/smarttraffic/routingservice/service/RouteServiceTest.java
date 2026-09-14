@@ -8,6 +8,7 @@ import com.smarttraffic.routingservice.integration.RoadSegment;
 import com.smarttraffic.routingservice.integration.TrafficServiceClient;
 import com.smarttraffic.routingservice.routing.DijkstraRouter;
 import com.smarttraffic.routingservice.routing.RoadNetworkBuilder;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,7 +37,7 @@ class RouteServiceTest {
     @BeforeEach
     void setUp() {
         RoadNetworkBuilder builder = new RoadNetworkBuilder(localTrafficCache);
-        routeService = new RouteService(trafficServiceClient, builder, new DijkstraRouter());
+        routeService = new RouteService(trafficServiceClient, builder, new DijkstraRouter(), new SimpleMeterRegistry());
     }
 
     private RoadSegment segment1() {

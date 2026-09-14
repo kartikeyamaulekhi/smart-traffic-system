@@ -33,6 +33,24 @@ spring:
 server:
   port: 8082
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  # Structured JSON logs (ECS format) - read by log shippers / Grafana Loki etc.
+  structured:
+    format:
+      console: ecs
+
 app:
   jwt:
     # MUST match the secret used by auth-service and routing-service - it's how
@@ -102,3 +120,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+  # Unit tests run without Redis/Kafka/Postgres - don't let their health
+  # indicators mark the whole app DOWN (and fail the health smoke test).
+  kafka:
+    listener:
+      auto-startup: false
+management:
+  health:
+    redis:
+      enabled: false
+    kafka:
+      enabled: false
