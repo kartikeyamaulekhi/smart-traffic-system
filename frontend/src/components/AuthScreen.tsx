@@ -13,6 +13,7 @@ export function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -29,6 +30,9 @@ export function AuthScreen() {
       setBusy(false);
     }
   }
+
+  const pwValid = password.length >= 8;
+  const emailValid = email.includes('@') && email.includes('.');
 
   return (
     <div className="hero">
@@ -54,6 +58,13 @@ export function AuthScreen() {
               </div>
             ))}
           </div>
+          <div className="hero-tech-badges">
+            <span className="tech-badge">Spring Boot 3</span>
+            <span className="tech-badge">Kafka</span>
+            <span className="tech-badge">Redis</span>
+            <span className="tech-badge">Resilience4j</span>
+            <span className="tech-badge">Grafana</span>
+          </div>
         </section>
 
         <section className="card auth-card glass">
@@ -68,19 +79,61 @@ export function AuthScreen() {
           <form onSubmit={onSubmit}>
             <h2>{mode === 'login' ? 'Welcome back' : 'Join the network'}</h2>
             <label>
-              Email
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus placeholder="you@example.com" />
+              <span>Email</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoFocus
+                placeholder="you@example.com"
+                autoComplete="email"
+                className={email.length > 0 && !emailValid ? 'input-error' : ''}
+              />
+              {email.length > 0 && !emailValid && <span className="field-hint error-hint">Enter a valid email address</span>}
             </label>
             <label>
-              Password
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} placeholder="••••••••" />
+              <span>Password</span>
+              <div className="password-field">
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="At least 8 characters"
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  className={password.length > 0 && !pwValid ? 'input-error' : ''}
+                />
+                <button
+                  type="button"
+                  className="pw-toggle"
+                  onClick={() => setShowPw((v) => !v)}
+                  tabIndex={-1}
+                  aria-label={showPw ? 'Hide password' : 'Show password'}
+                >
+                  {showPw ? '🙈' : '👁️'}
+                </button>
+              </div>
+              {mode === 'register' && password.length > 0 && (
+                <span className={`field-hint ${pwValid ? 'valid-hint' : 'error-hint'}`}>
+                  {pwValid ? '✓ Password looks good' : 'Minimum 8 characters required'}
+                </span>
+              )}
             </label>
             {error && <div className="error">{error}</div>}
-            <button type="submit" className="btn-primary" disabled={busy}>
-              {busy ? 'Please wait…' : mode === 'login' ? 'View live dashboard →' : 'Get started →'}
+            <button type="submit" className="btn-primary" disabled={busy || !emailValid || (mode === 'register' && !pwValid)}>
+              {busy ? (
+                <span className="btn-loading">
+                  <span className="spinner" />
+                  Please wait…
+                </span>
+              ) : mode === 'login' ? 'View live dashboard →' : 'Get started →'}
             </button>
             <p className="auth-hint muted">
-              {mode === 'login' ? 'New here? Use “Create account” — registration takes 10 seconds.' : 'Free demo access. Watch the corridor move.'}
+              {mode === 'login'
+                ? 'New here? Use "Create account" — registration takes 10 seconds.'
+                : 'Free demo access. Watch the corridor move.'}
             </p>
           </form>
         </section>

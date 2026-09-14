@@ -337,12 +337,176 @@ button { font-family: inherit; }
 
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-thumb { background: #2a3552; border-radius: 8px; }
+html { scroll-behavior: smooth; }
+
+/* ---------- Focus-visible ---------- */
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input:focus-visible, select:focus-visible { outline: none; }
+
+/* ---------- Connection health ---------- */
+
+.header-right { display: flex; align-items: center; gap: 14px; }
+.health-indicator {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 12px; border-radius: 999px;
+  background: var(--panel); border: 1px solid var(--panel-border);
+  font-size: 0.72rem; color: var(--text-dim); white-space: nowrap;
+}
+.health-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.health-pulse { animation: healthBlink 1.5s ease-in-out infinite; }
+@keyframes healthBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.health-label { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Toast notifications ---------- */
+
+.toast-container {
+  position: fixed; bottom: 80px; right: 20px; z-index: 100;
+  display: flex; flex-direction: column-reverse; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 18px; border-radius: 12px;
+  font-size: 0.86rem; font-weight: 500;
+  background: rgba(8, 12, 26, 0.95);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.7);
+  animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast:hover { opacity: 0.85; transform: translateX(-4px); }
+.toast-success { border-color: var(--ok-bd); }
+.toast-success .toast-icon { color: var(--ok-bd); }
+.toast-error { border-color: var(--danger-bd); }
+.toast-error .toast-icon { color: var(--danger-bd); }
+.toast-info { border-color: rgba(124, 92, 255, 0.4); }
+.toast-info .toast-icon { color: var(--accent); }
+.toast-icon { font-size: 1rem; font-weight: 800; }
+.toast-msg { color: var(--text); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* ---------- Page transitions ---------- */
+
+.page-enter { animation: fadeSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes fadeSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.app-loaded .page-enter { animation: none; }
+
+/* ---------- Mobile bottom nav ---------- */
+
+.mobile-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+  background: rgba(7, 10, 22, 0.95);
+  border-top: 1px solid var(--panel-border);
+  backdrop-filter: blur(16px);
+  padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+.mobile-nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: none; border: none; color: var(--text-dim);
+  padding: 8px 4px; cursor: pointer; font-size: 0.65rem; font-weight: 600;
+  transition: color 0.15s ease;
+}
+.mobile-nav-item.active { color: var(--accent); }
+.mobile-nav-icon { font-size: 1.2rem; }
+.mobile-nav-label { letter-spacing: 0.04em; }
+
+.desktop-only { display: flex; }
+
+/* ---------- Password field ---------- */
+
+.password-field { position: relative; }
+.password-field input { padding-right: 42px; }
+.pw-toggle {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; font-size: 1rem; cursor: pointer;
+  padding: 6px; border-radius: 6px; opacity: 0.6; transition: opacity 0.15s;
+}
+.pw-toggle:hover { opacity: 1; }
+
+.field-hint { font-size: 0.75rem; margin-top: 2px; }
+.error-hint { color: #fca5a5; }
+.valid-hint { color: #86efac; }
+.input-error { border-color: var(--danger-bd) !important; }
+.btn-loading { display: flex; align-items: center; gap: 8px; }
+.spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Hero tech badges ---------- */
+
+.hero-tech-badges {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px;
+}
+.tech-badge {
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--panel); border: 1px solid var(--panel-border);
+  font-size: 0.7rem; font-weight: 600; color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+/* ---------- Responsive ---------- */
 
 @media (max-width: 880px) {
   .hero-grid { grid-template-columns: 1fr; }
   .pillars { grid-template-columns: 1fr; }
-  .app-header { flex-wrap: wrap; }
-  .nav-tabs { order: 3; width: 100%; overflow-x: auto; }
-  .nav-tab { flex: 1; justify-content: center; }
+  .desktop-only { display: none; }
+  .mobile-nav { display: flex; }
+  .app-main { padding-bottom: 80px; }
+  .app-footer { display: none; }
+  .user-chip { gap: 6px; }
   .user-email { display: none; }
+  .health-label { display: none; }
+  .view-head { flex-direction: column; align-items: flex-start; }
+  .route-form { flex-direction: column; }
+  .route-form .field { min-width: unset; }
+  .swap-btn { align-self: center; transform: rotate(90deg); }
+  .swap-btn:hover { transform: rotate(270deg); }
+  .segment-list { grid-template-columns: 1fr; }
+  .route-summary-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .pick-row { flex-direction: column; }
+  .pick-row .field { min-width: unset; }
+  .ingest-form { flex-direction: column; }
+  .ingest-form .field { min-width: unset; }
+  .hero { padding: 24px clamp(16px, 4vw, 40px); }
+  .hero-title { font-size: clamp(2rem, 8vw, 3rem); }
+  .map-skeleton { height: 300px; }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .auth-card { padding: 20px; }
+  .seg-stats { gap: 12px; }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ---------- Selection ---------- */
+
+::selection { background: rgba(124, 92, 255, 0.35); color: #fff; }
+
+/* ---------- Print ---------- */
+
+@media print {
+  .app-header, .app-footer, .mobile-nav, .health-indicator, .toast-container { display: none; }
+  body { background: #fff; color: #000; }
 }
