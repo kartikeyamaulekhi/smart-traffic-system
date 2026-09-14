@@ -1,0 +1,123 @@
+# docker-compose.prod.yml — Production deployment overlay
+# ─────────────────────────────────────────────────────────────
+# Merges with docker-compose.yml to produce a production-safe stack:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Changes vs local-dev base file:
+#  • All infrastructure + internal service host-ports stripped (internal-only)
+#  • restart: unless-stopped on every container
+#  • Resource limits via Compose deploy.resources (Compose v2.24+)
+#  • Only the public entry-points remain exposed:
+#      - frontend   → ${FRONTEND_PORT:-80}   (React SPA + nginx reverse-proxy)
+#      - api-gateway → ${GATEWAY_PORT:-8080} (optional direct access for non-browser clients)
+#
+# Secrets are NOT in this file — they live in the server's .env (see .env.prod.example).
+# ─────────────────────────────────────────────────────────────
+
+services:
+  # ── Infrastructure ──────────────────────────────────────────
+
+  postgres:
+    ports: !reset []                       # remove 5433→5432; accessible only via postgres:5432
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  redis:
+    ports: !reset []
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
+  kafka:
+    ports: !reset []
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+
+  # ── Application services ────────────────────────────────────
+
+  auth-service:
+    ports: !reset []                       # internal only
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  traffic-service:
+    ports: !reset []
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: "0.5"
+
+  routing-service:
+    ports: !reset []
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  ml-service:
+    ports: !reset []
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: "0.5"
+
+  api-gateway:
+    ports: !override
+      - "${GATEWAY_PORT:-8080}:8080"       # expose only to localhost (cloud LB sits in front)
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  frontend:
+    ports: !override
+      - "${FRONTEND_PORT:-80}:80"          # public-facing; nginx serves SPA + proxies /api/* /auth/*
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
+  # ── Observability ───────────────────────────────────────────
+
+  prometheus:
+    ports: !reset []                       # internal only; scrape targets reference container names
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  grafana:
+    ports: !reset []                       # internal only; access via frontend or SSH tunnel
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"

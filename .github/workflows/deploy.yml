@@ -1,0 +1,77 @@
+name: Deploy
+
+# Manual production deployment to a VPS/cloud host over SSH.
+# The CI workflow already builds & pushes every service image to GHCR
+# (ghcr.io/<repo>/<service>:latest); this workflow pulls those images on
+# the server and runs the production-compose overlay.
+#
+# Requires GitHub repo secrets:
+#   VPS_HOST      — server IP or hostname (e.g. 203.0.113.10)
+#   VPS_USER      — SSH user (must be able to run docker)
+#   VPS_SSH_KEY   — private SSH key (ed25519/pem) for that user
+#   JWT_SECRET            — base64 secret shared by all services
+#   JWT_EXPIRATION_MS     — optional, default 3600000
+#   POSTGRES_PASSWORD     — superuser password for the postgres container
+#   TOMTOM_API_KEY        — optional; empty disables live ingestion
+#
+# The first time it runs it must create:
+#   mkdir -p ~/smart-traffic
+# on the server (or anything the workflow's ~ path translates to).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy smart-traffic-system
+    runs-on: ubuntu-latest
+    concurrency: production
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Prepare SSH key and .env
+        run: |
+          mkdir -p ~/.ssh
+          # Deploy key must not be committed; write it into the runner only.
+          printf '%b' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # Build the prod .env from repo secrets (never stored in the repo).
+          cat > .env <<EOF
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS:-3600000}
+          POSTGRES_USER=smart_traffic
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          TOMTOM_API_KEY=${{ secrets.TOMTOM_API_KEY }}
+          FRONTEND_PORT=80
+          GATEWAY_PORT=8080
+          EOF
+
+      - name: Copy compose files and .env to server
+        run: |
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key \
+            docker-compose.yml docker-compose.prod.yml .env \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/smart-traffic/"
+
+      - name: Pull images and start the stack
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "cd ~/smart-traffic && \
+             docker compose -f docker-compose.yml -f docker-compose.prod.yml pull && \
+             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans"
+
+      - name: Health check the gateway
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "for i in {1..30}; do \
+               s=\$(curl -fsS http://localhost:8080/actuator/health 2>/dev/null) && \
+               echo \"\$s\" | grep -q '\"status\":\"UP\"' && echo HEALTHY && break; \
+               sleep 2; \
+             done"
