@@ -3,7 +3,7 @@ import { useAuth } from '../auth';
 import { api } from '../api/client';
 import type { RoadSegment, RouteResult } from '../api/types';
 import { LANDMARKS, LANDMARK_ICON } from '../config/landmarks';
-import { NetworkMap } from './NetworkMap';
+import { RealMap } from './RealMap';
 import { traceRoute, formatEta, formatKm } from '../lib/geo';
 import { useToast } from './Toast';
 
@@ -121,6 +121,19 @@ export function RoutePlanner() {
 
       {error && <div className="error">{error}</div>}
 
+      <div className="card glass map-card">
+        <div className="map-card-head">
+          <h3>Dehradun road network</h3>
+          <span className="muted">Live OpenStreetMap · segments · landmarks</span>
+        </div>
+        <RealMap
+          segments={segments}
+          routeTrace={route ? trace : []}
+          origin={origin ? [origin.lat, origin.lng] : undefined}
+          destination={destination ? [destination.lat, destination.lng] : undefined}
+        />
+      </div>
+
       {route && origin && destination ? (
         <>
           <div className="route-summary-grid">
@@ -143,16 +156,6 @@ export function RoutePlanner() {
               </div>
               <span className="kpi-sub">{destination.city}</span>
             </div>
-          </div>
-
-          <div className="card glass">
-            <NetworkMap
-              segments={segments}
-              city="ALL"
-              routeTrace={trace}
-              origin={[origin.lat, origin.lng]}
-              destination={[destination.lat, destination.lng]}
-            />
           </div>
 
           <div className="card glass">

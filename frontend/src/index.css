@@ -446,6 +446,66 @@ input:focus-visible, select:focus-visible { outline: none; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------- Real map (Leaflet) ---------- */
+
+.real-map-container {
+  background: #0d1424;
+  border: 1px solid var(--glass-bd);
+}
+
+.real-map-container .leaflet-container {
+  background: #0d1424;
+  font-family: inherit;
+}
+
+/* Dark-mode tile filter — inverts + desaturates the standard OSM tiles */
+.real-map-container .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.88) contrast(1.08) saturate(0.75);
+}
+
+.real-map-container .leaflet-control-attribution {
+  background: rgba(13,20,36,.75) !important;
+  color: #828d9e !important;
+  font-size: 10px;
+  border-radius: 4px 0 0 0;
+}
+.real-map-container .leaflet-control-attribution a { color: #86a0d4 !important; }
+
+.real-map-container .leaflet-control-zoom a {
+  background: var(--glass-bg) !important;
+  color: #c3cde0 !important;
+  border: 1px solid var(--glass-bd) !important;
+}
+.real-map-container .leaflet-control-zoom a:hover { background: var(--card-bg) !important; }
+
+/* Route glow layer */
+.real-map-container .route-glow {
+  filter: drop-shadow(0 0 10px rgba(124,92,255,.7)) drop-shadow(0 0 4px rgba(79,172,254,.4));
+}
+
+/* Leaflet tooltip override for the dark theme */
+.real-map-container .map-tooltip-dark {
+  background: var(--card-bg) !important;
+  color: #e5e9f2 !important;
+  border: 1px solid var(--glass-bd) !important;
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,.5) !important;
+  font-size: 0.82rem;
+  max-width: 220px;
+}
+.real-map-container .map-tooltip-dark b { color: #fff; }
+
+.map-card { overflow: hidden; }
+.map-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 14px 18px 0;
+}
+.map-card-head h3 { margin: 0; font-size: 0.95rem; }
+.map-card-head .muted { font-size: 0.78rem; }
+
 /* ---------- Error boundary / crash screen ---------- */
 
 .crash-screen {

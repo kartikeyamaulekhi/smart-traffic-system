@@ -4,6 +4,9 @@ A production-style, microservice-based traffic monitoring platform. En route, an
 
 ![Status](https://img.shields.io/badge/status-production--ready-success)
 
+> 💨 **New here?** Start with [`GETTING_STARTED.md`](GETTING_STARTED.md) — a 2-minute
+> clone-to-dashboard quickstart.
+
 ## Roadmap & status
 
 | Phase | Name                        | Status |
@@ -117,7 +120,9 @@ docker ps
 
 **Take the UI for a spin:** open http://localhost:3000, register, then the app lets you
 browse the road network (19 seeded segments incl. Dehradun: DIT, UPES, colleges, etc.),
-view live/predicted congestion, plan routes (e.g. DIT → UPES), and manually ingest readings.
+view live/predicted congestion, plan routes (e.g. DIT → UPES) on a **real OpenStreetMap
+map of Dehradun** (Leaflet — segments, landmarks, origin/destination pins, and the route
+polyline all drawn over actual cartography), and manually ingest readings.
 
 Run tests on any service:
 
