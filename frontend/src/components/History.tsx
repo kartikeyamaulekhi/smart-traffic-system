@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import type { CongestionLevel, RoadSegment, TrafficReading, TrafficSource } from '../api/types';
 import { CONGESTION_COLOR } from '../api/types';
 import { formatInstant } from '../lib/geo';
+import { useToast } from './Toast';
 
 function HistoryChart({ readings, color }: { readings: TrafficReading[]; color: string }) {
   const [w, h] = [520, 170];
@@ -30,6 +31,7 @@ function HistoryChart({ readings, color }: { readings: TrafficReading[]; color: 
 
 export function History() {
   const { token } = useAuth();
+  const { push } = useToast();
   const [segments, setSegments] = useState<RoadSegment[]>([]);
   const [selected, setSelected] = useState<number>(7);
   const [readings, setReadings] = useState<TrafficReading[] | null>(null);
@@ -65,9 +67,12 @@ export function History() {
         source: 'MANUAL' as TrafficSource,
       });
       setIngestMsg(`Ingested a new reading — segment ${selected}`);
+      push(`Reading saved on segment ${selected}`, 'success');
       setReadings(await api.historyForSegment(token, selected));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ingest failed');
+      const msg = err instanceof Error ? err.message : 'Ingest failed';
+      setError(msg);
+      push(msg, 'error');
     }
   }
 

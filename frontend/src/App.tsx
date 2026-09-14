@@ -6,6 +6,7 @@ import { RoutePlanner } from './components/RoutePlanner';
 import { History } from './components/History';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { ToastProvider } from './components/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 type Tab = 'dashboard' | 'routes' | 'history';
 
@@ -60,9 +61,11 @@ function Shell() {
 
       <main className="app-main" key={viewKey}>
         <div className="page-enter">
-          {tab === 'dashboard' && <Dashboard />}
-          {tab === 'routes' && <RoutePlanner />}
-          {tab === 'history' && <History />}
+          <ErrorBoundary>
+            {tab === 'dashboard' && <Dashboard />}
+            {tab === 'routes' && <RoutePlanner />}
+            {tab === 'history' && <History />}
+          </ErrorBoundary>
         </div>
       </main>
 

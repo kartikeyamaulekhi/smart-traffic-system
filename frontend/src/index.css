@@ -446,6 +446,25 @@ input:focus-visible, select:focus-visible { outline: none; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------- Error boundary / crash screen ---------- */
+
+.crash-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 400px; padding: 40px 20px;
+}
+.crash-card {
+  text-align: center; max-width: 460px; padding: 40px 32px;
+  border-radius: 20px;
+}
+.crash-icon { font-size: 2.4rem; margin-bottom: 12px; }
+.crash-card h2 { margin: 0 0 8px; font-size: 1.3rem; }
+.crash-detail {
+  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.78rem;
+  color: #fca5a5; background: rgba(0,0,0,0.3); padding: 12px;
+  border-radius: 8px; margin: 16px 0; text-align: left;
+  overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+}
+
 /* ---------- Hero tech badges ---------- */
 
 .hero-tech-badges {

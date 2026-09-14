@@ -5,9 +5,11 @@ import type { RoadSegment, RouteResult } from '../api/types';
 import { LANDMARKS, LANDMARK_ICON } from '../config/landmarks';
 import { NetworkMap } from './NetworkMap';
 import { traceRoute, formatEta, formatKm } from '../lib/geo';
+import { useToast } from './Toast';
 
 export function RoutePlanner() {
   const { token } = useAuth();
+  const { push } = useToast();
   const [segments, setSegments] = useState<RoadSegment[]>([]);
   const [originId, setOriginId] = useState('geu');
   const [destId, setDestId] = useState('upes');
@@ -44,6 +46,7 @@ export function RoutePlanner() {
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Routing failed');
+      push(err instanceof Error ? err.message : 'Routing failed', 'error');
       setRoute(null);
     } finally {
       setBusy(false);

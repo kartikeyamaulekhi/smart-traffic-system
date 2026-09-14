@@ -10,6 +10,14 @@ export class ApiError extends Error {
   }
 }
 
+const UNAUTHORIZED_EVENT = 'smart-traffic:unauthorized';
+
+// Any component (or the auto-logout timer) can fire this; the AuthProvider
+// listens and clears the stored session, returning the user to the login screen.
+export function signalUnauthorized(): void {
+  window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
@@ -34,6 +42,9 @@ async function request<T>(path: string, { method = 'GET', body, token }: Request
       message = data.message || data.error || message;
     } catch {
       // non-JSON error body; keep the generic message
+    }
+    if (res.status === 401 || res.status === 403) {
+      signalUnauthorized();
     }
     throw new ApiError(res.status, message);
   }
