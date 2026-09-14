@@ -1,16 +1,21 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useAuth } from '../auth';
 import { api } from '../api/client';
-import type { RoadSegment, RouteResult } from '../api/types';
+import type { CongestionLevel, RoadSegment, RouteResult, TrafficReading } from '../api/types';
+import { CONGESTION_COLOR } from '../api/types';
 import { LANDMARKS, LANDMARK_ICON } from '../config/landmarks';
 import { RealMap } from './RealMap';
+import type { SegmentStatusBrief } from './NetworkMap';
 import { traceRoute, formatEta, formatKm } from '../lib/geo';
 import { useToast } from './Toast';
+
+const REFRESH_MS = 30000;
 
 export function RoutePlanner() {
   const { token } = useAuth();
   const { push } = useToast();
   const [segments, setSegments] = useState<RoadSegment[]>([]);
+  const [live, setLive] = useState<Map<number, { level: CongestionLevel; speed: number }>>(new Map());
   const [originId, setOriginId] = useState('geu');
   const [destId, setDestId] = useState('upes');
   const [route, setRoute] = useState<RouteResult | null>(null);
@@ -19,7 +24,27 @@ export function RoutePlanner() {
 
   useEffect(() => {
     if (!token) return;
-    api.segments(token).then(setSegments).catch(() => undefined);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const segs = await api.segments(token);
+        if (cancelled) return;
+        setSegments(segs);
+        const latest = new Map<number, { level: CongestionLevel; speed: number }>();
+        await Promise.all(
+          segs.map(async (s) => {
+            const r: TrafficReading | null = await api.latestForSegment(token, s.id).catch(() => null);
+            if (r && !cancelled) latest.set(s.id, { level: r.congestionLevel, speed: r.avgSpeedKmh });
+          }),
+        );
+        if (!cancelled) setLive(latest);
+      } catch {
+        // dashboard-level errors handled there; keep map usable with segments only
+      }
+    };
+    load();
+    const t = setInterval(load, REFRESH_MS);
+    return () => { cancelled = true; clearInterval(t); };
   }, [token]);
 
   const origin = useMemo(() => LANDMARKS.find((l) => l.id === originId), [originId]);
@@ -28,6 +53,19 @@ export function RoutePlanner() {
   const trace = useMemo(
     () => (route && origin && destination ? traceRoute(segments, route, origin.lat, origin.lng) : []),
     [route, segments, origin, destination],
+  );
+
+  const colorBy = useCallback(
+    (id: number) => live.get(id)?.level ?? null,
+    [live],
+  );
+
+  const brief = useCallback(
+    (id: number): SegmentStatusBrief | null => {
+      const s = live.get(id);
+      return s ? { level: s.level, speed: s.speed } : null;
+    },
+    [live],
   );
 
   async function onSubmit(e: FormEvent) {
@@ -123,11 +161,23 @@ export function RoutePlanner() {
 
       <div className="card glass map-card">
         <div className="map-card-head">
-          <h3>Dehradun road network</h3>
-          <span className="muted">Live OpenStreetMap · segments · landmarks</span>
+          <div>
+            <h3>Dehradun road network</h3>
+            <span className="muted">Live OpenStreetMap · colored by real-time congestion</span>
+          </div>
+          <div className="legend">
+            {(['LOW', 'MEDIUM', 'HIGH', 'SEVERE'] as CongestionLevel[]).map((l) => (
+              <span key={l} className="legend-item">
+                <i style={{ background: CONGESTION_COLOR[l], boxShadow: `0 0 6px ${CONGESTION_COLOR[l]}` }} />
+                {l}
+              </span>
+            ))}
+          </div>
         </div>
         <RealMap
           segments={segments}
+          colorBy={colorBy}
+          brief={brief}
           routeTrace={route ? trace : []}
           origin={origin ? [origin.lat, origin.lng] : undefined}
           destination={destination ? [destination.lat, destination.lng] : undefined}

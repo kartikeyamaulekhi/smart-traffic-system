@@ -499,12 +499,15 @@ input:focus-visible, select:focus-visible { outline: none; }
 .map-card { overflow: hidden; }
 .map-card-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 14px 18px 0;
+  padding: 14px 18px 6px;
+  flex-wrap: wrap;
 }
 .map-card-head h3 { margin: 0; font-size: 0.95rem; }
 .map-card-head .muted { font-size: 0.78rem; }
+.map-card-head .legend { margin: 0; }
 
 /* ---------- Error boundary / crash screen ---------- */
 
