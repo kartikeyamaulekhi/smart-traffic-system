@@ -76,6 +76,12 @@ export interface SegmentStatus extends RoadSegment {
   prediction: Prediction | null;
 }
 
+// Lightweight per-segment status snapshot used by map tooltips/labels.
+export interface SegmentStatusBrief {
+  level: CongestionLevel | null;
+  speed: number | null;
+}
+
 export const CONGESTION_COLOR: Record<CongestionLevel, string> = {
   LOW: '#16a34a',
   MEDIUM: '#d97706',

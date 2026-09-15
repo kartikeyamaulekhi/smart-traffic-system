@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth';
 import { api } from '../api/client';
-import type { CongestionLevel, Prediction, RoadSegment, TrafficReading } from '../api/types';
+import type { CongestionLevel, Prediction, RoadSegment, SegmentStatusBrief, TrafficReading } from '../api/types';
 import { CONGESTION_COLOR } from '../api/types';
-import { NetworkMap, type SegmentStatusBrief } from './NetworkMap';
+import { RealMap } from './RealMap';
+import { MapStatusChip } from './MapStatusChip';
 import { Sparkline } from './Sparkline';
 import { SkeletonBars, SkeletonRow } from './Skeleton';
 import { formatInstant } from '../lib/geo';
@@ -49,6 +50,12 @@ export function Dashboard() {
   const [forecastOffset, setForecastOffset] = useState(2);
   const [error, setError] = useState('');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -106,6 +113,23 @@ export function Dashboard() {
     [filtered],
   );
 
+  const mapStats = useMemo(() => {
+    let speedSum = 0;
+    let n = 0;
+    const counts: Partial<Record<CongestionLevel, number>> = {};
+    filtered.forEach((c) => {
+      if (!c.latest) return;
+      speedSum += c.latest.avgSpeedKmh;
+      n += 1;
+      counts[c.latest.congestionLevel] = (counts[c.latest.congestionLevel] ?? 0) + 1;
+    });
+    return { avg: n ? speedSum / n : null, counts };
+  }, [filtered]);
+
+  const nextRefreshIn = lastUpdate
+    ? Math.max(0, Math.round((lastUpdate.getTime() + REFRESH_MS - nowTick) / 1000))
+    : null;
+
   if (!cards) {
     return (
       <section>
@@ -161,7 +185,16 @@ export function Dashboard() {
 
       <div className="card glass">
         <div className="map-title-row">
-          <h3>{city === 'ALL' ? 'Road network' : `${city} road network`}</h3>
+          <div>
+            <h3>{city === 'ALL' ? 'Road network' : `${city} road network`}</h3>
+            <span className="map-live-line">
+              <i className="live-dot" />
+              <span className="muted">
+                {lastUpdate ? `updated ${formatInstant(lastUpdate.toISOString())}` : 'loading…'}
+                {nextRefreshIn != null && ` · refresh in ${nextRefreshIn}s`}
+              </span>
+            </span>
+          </div>
           <div className="legend">
             {(['LOW', 'MEDIUM', 'HIGH', 'SEVERE'] as CongestionLevel[]).map((l) => (
               <span key={l} className="legend-item">
@@ -171,7 +204,15 @@ export function Dashboard() {
             ))}
           </div>
         </div>
-        <NetworkMap segments={filtered} city={city} colorBy={(id) => filtered.find((f) => f.id === id)?.latest?.congestionLevel ?? null} brief={brief} />
+        <div className="map-stage">
+          <RealMap
+            segments={filtered}
+            city={city}
+            colorBy={(id) => filtered.find((f) => f.id === id)?.latest?.congestionLevel ?? null}
+            brief={brief}
+          />
+          <MapStatusChip avgSpeedKmh={mapStats.avg} counts={mapStats.counts} updatedAt={lastUpdate?.getTime() ?? null} loading={!cards} />
+        </div>
         <div className="forecast-slider-row">
           <span className="muted">🔮 Forecast for</span>
           <input type="range" min={0} max={12} value={forecastOffset} onChange={(e) => setForecastOffset(Number(e.target.value))} />

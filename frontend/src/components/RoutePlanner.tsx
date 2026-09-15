@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useAuth } from '../auth';
 import { api } from '../api/client';
-import type { CongestionLevel, RoadSegment, RouteResult, TrafficReading } from '../api/types';
+import type { CongestionLevel, RoadSegment, RouteResult, SegmentStatusBrief, TrafficReading } from '../api/types';
 import { CONGESTION_COLOR } from '../api/types';
 import { LANDMARKS, LANDMARK_ICON } from '../config/landmarks';
 import { RealMap } from './RealMap';
-import type { SegmentStatusBrief } from './NetworkMap';
+import { MapStatusChip } from './MapStatusChip';
 import { traceRoute, formatEta, formatKm } from '../lib/geo';
 import { useToast } from './Toast';
 
@@ -21,6 +21,7 @@ export function RoutePlanner() {
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -37,7 +38,10 @@ export function RoutePlanner() {
             if (r && !cancelled) latest.set(s.id, { level: r.congestionLevel, speed: r.avgSpeedKmh });
           }),
         );
-        if (!cancelled) setLive(latest);
+        if (!cancelled) {
+          setLive(latest);
+          setFetchedAt(Date.now());
+        }
       } catch {
         // dashboard-level errors handled there; keep map usable with segments only
       }
@@ -67,6 +71,20 @@ export function RoutePlanner() {
     },
     [live],
   );
+
+  const routeStats = useMemo(() => {
+    if (!route) return { avg: null as number | null, counts: {} as Partial<Record<CongestionLevel, number>> };
+    let wsum = 0;
+    let len = 0;
+    const counts: Partial<Record<CongestionLevel, number>> = {};
+    route.segments.forEach((leg) => {
+      wsum += leg.effectiveSpeedKmh * leg.distanceKm;
+      len += leg.distanceKm;
+      const lvl = live.get(leg.roadSegmentId)?.level;
+      if (lvl) counts[lvl] = (counts[lvl] ?? 0) + 1;
+    });
+    return { avg: len > 0 ? wsum / len : null, counts };
+  }, [route, live]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -174,14 +192,18 @@ export function RoutePlanner() {
             ))}
           </div>
         </div>
-        <RealMap
-          segments={segments}
-          colorBy={colorBy}
-          brief={brief}
-          routeTrace={route ? trace : []}
-          origin={origin ? [origin.lat, origin.lng] : undefined}
-          destination={destination ? [destination.lat, destination.lng] : undefined}
-        />
+        <div className="map-stage">
+          <RealMap
+            segments={segments}
+            colorBy={colorBy}
+            brief={brief}
+            routeTrace={route ? trace : []}
+            routeSpeedKmh={routeStats.avg}
+            origin={origin ? [origin.lat, origin.lng] : undefined}
+            destination={destination ? [destination.lat, destination.lng] : undefined}
+          />
+          <MapStatusChip avgSpeedKmh={routeStats.avg} counts={routeStats.counts} updatedAt={fetchedAt} />
+        </div>
       </div>
 
       {route && origin && destination ? (

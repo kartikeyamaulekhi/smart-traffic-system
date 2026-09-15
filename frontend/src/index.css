@@ -207,25 +207,29 @@ button { font-family: inherit; }
 
 /* ---------- Map ---------- */
 
-.map-wrap { position: relative; }
-.network-map { width: 100%; height: auto; border-radius: 12px; display: block; }
-.road-group { cursor: pointer; }
-.flow-dash { animation: flow 1.6s linear infinite; }
-@keyframes flow { to { stroke-dashoffset: -42; } }
-.node-pulse { animation: nodePulse 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-@keyframes nodePulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-.map-tooltip {
-  position: absolute; z-index: 5; pointer-events: none;
-  background: rgba(8, 12, 26, 0.96); border: 1px solid var(--panel-border);
-  padding: 6px 10px; border-radius: 8px; font-size: 0.78rem;
-  white-space: nowrap; display: flex; gap: 8px; align-items: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
+.map-stage { position: relative; border-radius: 14px; overflow: hidden; }
 .map-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
 .map-title-row h3 { margin: 0; font-size: 1rem; }
-.legend { display: flex; gap: 14px; flex-wrap: wrap; }
-.legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-dim); }
-.legend-item i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.map-live-line { display: flex; align-items: center; gap: 7px; margin-top: 3px; }
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+  animation: livePulse 1.6s ease-in-out infinite;
+}
+@keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes nodePulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+.legend { display: flex; gap: 8px; flex-wrap: wrap; }
+.legend-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.74rem; color: var(--text-dim);
+  padding: 4px 11px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--panel-border);
+  white-space: nowrap;
+}
+.legend-item i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
 .forecast-slider-row { display: flex; align-items: center; gap: 14px; margin-top: 16px; border-top: 1px dashed var(--panel-border); padding-top: 14px; }
 .forecast-slider-row input { flex: 1; height: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2)); accent-color: var(--accent); }
@@ -458,10 +462,8 @@ input:focus-visible, select:focus-visible { outline: none; }
   font-family: inherit;
 }
 
-/* Dark-mode tile filter — inverts + desaturates the standard OSM tiles */
-.real-map-container .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.88) contrast(1.08) saturate(0.75);
-}
+/* Native dark tiles (CartoDB Dark Matter) — no CSS filter inversion needed */
+.real-map-container .leaflet-tile-pane { filter: none; }
 
 .real-map-container .leaflet-control-attribution {
   background: rgba(13,20,36,.75) !important;
@@ -483,7 +485,131 @@ input:focus-visible, select:focus-visible { outline: none; }
   filter: drop-shadow(0 0 10px rgba(124,92,255,.7)) drop-shadow(0 0 4px rgba(79,172,254,.4));
 }
 
-/* Leaflet tooltip override for the dark theme */
+/* Edge vignette — sits between tiles and vector layers for depth */
+.map-vignette {
+  position: absolute; inset: 0; z-index: 360; pointer-events: none;
+  box-shadow: inset 0 0 90px 26px rgba(2, 6, 18, 0.5);
+}
+
+/* Animated congestion flow on road segments */
+.real-map-container .seg-flow {
+  fill: none;
+  stroke-linecap: round;
+  animation: segFlow 1.6s linear infinite;
+  stroke-dasharray: 4 12;
+}
+@keyframes segFlow { to { stroke-dashoffset: -16; } }
+
+/* Animated traffic marching-ants on the route line */
+.real-map-container .route-flow {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: routeFlow 1.5s linear infinite;
+  stroke-dasharray: 12 10;
+}
+@keyframes routeFlow { to { stroke-dashoffset: -22; } }
+
+/* Moving vehicle dots */
+.real-map-container .vehicle-dot {
+  filter: drop-shadow(0 0 4px rgba(139,109,255,0.95));
+}
+.real-map-container .vehicle-trail {
+  filter: drop-shadow(0 0 8px rgba(124,92,255,0.5));
+}
+
+/* Landmark badges with zoom-gated labels */
+.lm-pin { position: relative; }
+.lm-badge {
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(160deg, #1c2639, #0e1526);
+  border: 2px solid var(--lm-bc, #2f3b5c);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+.lm-badge.edge {
+  border-color: #7c5cff;
+  box-shadow: 0 0 0 3px rgba(124,92,255,0.25), 0 3px 10px rgba(0,0,0,0.5);
+}
+.lm-label {
+  position: absolute; top: 32px; left: 50%; transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(8, 12, 26, 0.85);
+  border: 1px solid var(--panel-border);
+  color: #dfe6f2;
+  font-size: 10.5px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  display: none;
+}
+.real-map-container.labels-on .lm-label { display: block; }
+.real-map-container .lm-label::before {
+  content: ''; position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+  border-bottom: 4px solid var(--panel-border);
+}
+
+/* Origin / destination teardrop pins */
+.pin-badge { position: relative; }
+.pin-head {
+  position: absolute; top: 0; left: 1px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--pin-c, #7c5cff);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 800; font-size: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+  z-index: 2;
+}
+.pin-tail {
+  position: absolute; top: 22px; left: 8px;
+  width: 0; height: 0;
+  border-left: 7px solid transparent; border-right: 7px solid transparent;
+  border-top: 11px solid var(--pin-c, #7c5cff);
+  z-index: 1;
+}
+.pin-ring {
+  position: absolute; top: 8px; left: 8px;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--pin-c, #7c5cff);
+  z-index: 0;
+  animation: pinPulse 2s ease-out infinite;
+}
+@keyframes pinPulse {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  70% { transform: scale(2); opacity: 0; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+/* Live status chip overlay */
+.map-status-chip {
+  position: absolute; left: 12px; bottom: 12px; z-index: 900;
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 14px; border-radius: 999px;
+  background: rgba(8, 12, 26, 0.82);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.status-chip-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #22c55e; box-shadow: 0 0 6px #22c55e;
+}
+.status-chip-dot.pulse { animation: livePulse 1.6s ease-in-out infinite; }
+.status-chip-live { color: #22c55e; font-weight: 800; letter-spacing: 0.08em; font-size: 0.7rem; }
+.status-chip-speed { color: #eef2fb; font-size: 0.85rem; }
+.status-chip-legs { display: inline-flex; align-items: center; gap: 8px; margin-left: 2px; }
+.status-chip-leg { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: #dfe6f2; }
+.status-chip-leg i { width: 8px; height: 8px; border-radius: 50%; }
+.status-chip-age { opacity: 0.75; }
+
+/* Leaflet tile tooltip override for the dark theme */
 .real-map-container .map-tooltip-dark {
   background: var(--card-bg) !important;
   color: #e5e9f2 !important;
