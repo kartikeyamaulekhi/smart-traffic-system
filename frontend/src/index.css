@@ -462,8 +462,10 @@ input:focus-visible, select:focus-visible { outline: none; }
   font-family: inherit;
 }
 
-/* Native dark tiles (CartoDB Dark Matter) — no CSS filter inversion needed */
-.real-map-container .leaflet-tile-pane { filter: none; }
+/* Dark-mode filter tuned for contrast — roads and labels pop clearly */
+.real-map-container .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(1.15) contrast(1.5) saturate(0.4);
+}
 
 .real-map-container .leaflet-control-attribution {
   background: rgba(13,20,36,.75) !important;
